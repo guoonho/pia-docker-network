@@ -1,0 +1,22 @@
+version: '3'
+services:
+    pia:
+        container_name: pia
+        image: colinhebert/pia-openvpn
+        env_file: .env
+        dns:
+            - 209.222.18.222
+            - 209.222.18.218
+        cap_add:
+            - NET_ADMIN
+        devices:
+            - "/dev/net/tun"
+
+    # Add other services here that you would like to use the PIA VPN.
+    #exampleservice:
+    #   network_mode: "service:pia"
+    #   depends_on:
+    #       - "pia"
+    #
+    #   image: [image here]
+ 
