@@ -3,7 +3,7 @@ services:
     pia:
         container_name: pia
         image: colinhebert/pia-openvpn
-        env_file: .env
+        env_file: pia.env
         dns:
             - 209.222.18.222
             - 209.222.18.218
