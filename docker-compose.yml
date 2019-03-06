@@ -11,27 +11,7 @@ services:
             - NET_ADMIN
         devices:
             - "/dev/net/tun"
-
-    plex:
-        image: plexinc/pms-docker
-        container_name: plex
         restart: unless-stopped
-        env_file: plex.env
-        ports:
-            - 32400:32400/tcp
-            - 3005:3005/tcp
-            - 8324:8324/tcp
-            - 32469:32469/tcp
-            - 1900:1900/udp
-            - 32410:32410/udp
-            - 32412:32412/udp
-            - 32413:32413/udp
-            - 32414:32414/udp
-        hostname: kplex
-        volumes:
-            - ${MOUNTDIR}/plex/config:/config
-            - ${MOUNTDIR}/plex/transcode:/transcode
-            - ${MOUNTDIR}/tmp/test/plex/data:/data
 
     transmission:
         network_mode: "service:pia"
@@ -41,21 +21,11 @@ services:
         container_name: transmission
         env_file: trans.env
         volumes:
-            - ${MOUNTDIR}/plex/data:/downloads
-            - ${MOUNTDIR}/trans/config:/config
+            - ./trans/config:/config
             - ${MOUNTDIR}/trans/watch:/watch
-
-    radarr:
-        network_mode: "service:pia"
-        depends_on:
-            - "pia"
-        image: linuxserver/radarr
-        container_name: radarr
-        env_file: radarr.env
-        volumes:
-            - ${MOUNTDIR}/radarr/config:/config
-            - ${MOUNTDIR}/plex/data/radarr/downloads:/downloads
-            - ${MOUNTDIR}/plex/data/radarr/movies:/movies
+            - ${MOUNTDIR}/trans/downloads:/downloads
+            - ${MOUNTDIR}/shared/movies:/movies
+        restart: unless-stopped
 
     lidarr:
         network_mode: "service:pia"
@@ -65,9 +35,37 @@ services:
         container_name: lidarr
         env_file: lidarr.env
         volumes:
-            - ${MOUNTDIR}/lidarr/music:/music
-            - ${MOUNTDIR}/lidarr/config:/config
-            - ${MOUNTDIR}/lidarr/downloads:/downloads
+            - ${MOUNTDIR}/shared/music:/music
+            - ./lidarr/config:/config
+            - ${MOUNTDIR}/trans/downloads:/downloads
+        restart: unless-stopped
+
+    radarr:
+        network_mode: "service:pia"
+        depends_on:
+            - "pia"
+        image: linuxserver/radarr
+        container_name: radarr
+        env_file: radarr.env
+        volumes:
+            - ./radarr/config:/config
+            - ${MOUNTDIR}/trans/downloads:/downloads
+            - ${MOUNTDIR}/shared/movies:/movies
+        restart: unless-stopped
+
+    sonarr:
+        network_mode: "service:pia"
+        depends_on:
+            - "pia"
+        image: linuxserver/sonarr
+        container_name: sonarr
+        env_file: sonarr.env
+        volumes:
+            - ./sonarr/config:/config
+            - ${MOUNTDIR}/trans/downloads:/downloads
+            - ${MOUNTDIR}/shared/tv:/tv
+        restart: unless-stopped
+
 
     jackett:
         network_mode: "service:pia"
@@ -76,11 +74,22 @@ services:
         image: linuxserver/jackett
         container_name: jackett
         env_file: jackett.env
-        #ports:
-        #    - 9117:9117/tcp
         volumes:
-            - ${MOUNTDIR}/jackett/config:/config
-            - ${MOUNTDIR}/jackett/blackhole:/downloads
+            - ./jackett/config:/config
+            - ${MOUNTDIR}/jackett/downloads:/downloads
+        restart: unless-stopped
+
+    emby:
+        image: emby/embyserver:4.1.0.12
+        container_name: emby
+        env_file: emby.env
+        volumes:
+            - ./emby/config:/config
+            - ${MOUNTDIR}/shared/movies:/mnt/movies
+            - ${MOUNTDIR}/shared/tv:/mnt/tv
+            - ${MOUNTDIR}/emby/transcode:/mnt/transcode
+            - ${MOUNTDIR}/emby/cache:/mnt/cache
+        restart: unless-stopped
 
     proxy:
         image: dperson/nginx
@@ -88,15 +97,21 @@ services:
         ports:
             - 80:80/tcp
             - 443:443/tcp
+            - 9091:9091/tcp
         links:
             - pia:transmission
-            - pia:radarr
+            - pia:deluge
             - pia:lidarr
+            - pia:radarr
+            - pia:sonarr
             - pia:jackett
+            - emby
+        restart: unless-stopped
         command: [
                     "-w", "http://transmission:9091/transmission;/transmission",
                     "-w", "http://radarr:7878/radarr;/radarr",
+                    "-w", "http://sonarr:8989/sonarr;/sonarr",
                     "-w", "http://lidarr:8686/lidarr;/lidarr",
-                    "-w", "http://jackett:9117/jackett;/jackett"
+                    "-w", "http://jackett:9117/jackett;/jackett",
+                    "-w", "http://emby:8096;/emby"
                  ]
-
